@@ -9,10 +9,11 @@ package recaptcha
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type RecaptchaResponse struct {
@@ -31,19 +32,24 @@ var recaptchaPrivateKey string
 // the client answered the reCaptcha input question correctly.
 // It returns a boolean value indicating whether or not the client answered correctly.
 func check(remoteip, response string) (r RecaptchaResponse) {
+	log := logrus.WithFields(logrus.Fields{
+		"method":        "recaptcha.check",
+		"remoteIP":      remoteip,
+		"responseToken": response,
+	})
 	resp, err := http.PostForm(recaptchaServerName,
 		url.Values{"secret": {recaptchaPrivateKey}, "remoteip": {remoteip}, "response": {response}})
 	if err != nil {
-		log.Printf("Post error: %s\n", err)
+		log.WithError(err).Error("Post Error")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("Read error: could not read body: %s", err)
+		log.WithError(err).Error("Read error: could not read body")
 	}
 	err = json.Unmarshal(body, &r)
 	if err != nil {
-		log.Println("Read error: got invalid JSON: %s", err)
+		log.WithError(err).WithField("body", string(body)).Error("Read error: got invalid JSON")
 	}
 	return
 }
